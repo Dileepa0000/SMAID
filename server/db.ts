@@ -37,12 +37,16 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+const isSSLRequired = process.env.NODE_ENV === "production" || process.env.DATABASE_URL?.includes("amazonaws.com") || process.env.DATABASE_URL?.includes("heroku") || process.env.PGSSLMODE === "require";
+const sslConfig = isSSLRequired ? { rejectUnauthorized: false } : false;
+
 export const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: parseInt(process.env.DB_POOL_MAX || '25', 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
     allowExitOnIdle: true,
+    ssl: sslConfig,
   });
 
   pool.on('error', (err) => {
@@ -58,6 +62,7 @@ export const pool = new Pool({
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
         allowExitOnIdle: true,
+        ssl: sslConfig,
       })
     : pool;
 
