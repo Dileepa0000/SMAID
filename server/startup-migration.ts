@@ -15,6 +15,12 @@
 import type { Pool } from "pg";
 import { precheckCleanupSteps } from "./db-precheck-cleanup";
 import { PROVIDER_CURRENCY_OPTIONS } from "@shared/payment-currencies";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface MigrationStep {
   description: string;
@@ -607,7 +613,31 @@ export async function runStartupMigration(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     const beforeColumns = await getExistingColumns(client);
-    const beforeTables = await getExistingTables(client);
+    let beforeTables = await getExistingTables(client);
+
+    if (!beforeTables.has("users")) {
+      console.log("[startup-migration] Fresh database detected — creating base schema from migrations...");
+      const migrationsDir = path.resolve(__dirname, "..", "migrations");
+      if (fs.existsSync(migrationsDir)) {
+        const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+        for (const file of files) {
+          console.log(`[startup-migration] Executing base migration file: ${file}`);
+          const sqlContent = fs.readFileSync(path.join(migrationsDir, file), "utf-8");
+          const statements = sqlContent.split("--> statement-breakpoint");
+          for (const stmt of statements) {
+            const trimmed = stmt.trim();
+            if (trimmed) {
+              try {
+                await client.query(trimmed);
+              } catch (err: any) {
+                // Ignore harmless notices for already existing types or statements
+              }
+            }
+          }
+        }
+        beforeTables = await getExistingTables(client);
+      }
+    }
 
     const errors: string[] = [];
 
