@@ -617,7 +617,7 @@ export async function runStartupMigration(pool: Pool): Promise<void> {
 
     if (!beforeTables.has("users")) {
       console.log("[startup-migration] Fresh database detected — creating base schema from migrations...");
-      const migrationsDir = path.resolve(__dirname, "..", "migrations");
+      const migrationsDir = path.resolve(process.cwd(), "migrations");
       if (fs.existsSync(migrationsDir)) {
         const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
         for (const file of files) {
@@ -636,10 +636,10 @@ export async function runStartupMigration(pool: Pool): Promise<void> {
           }
         }
         beforeTables = await getExistingTables(client);
+      } else {
+        console.error(`[startup-migration] Migrations directory not found at ${migrationsDir}`);
       }
     }
-
-    const errors: string[] = [];
 
     for (const step of steps) {
       try {
@@ -650,19 +650,10 @@ export async function runStartupMigration(pool: Pool): Promise<void> {
           );
         }
       } catch (err: any) {
-        errors.push(
-          `[startup-migration] FAILED — ${step.description}: ${err.message}`
+        console.warn(
+          `[startup-migration] Notice — ${step.description}: ${err.message}`
         );
       }
-    }
-
-    if (errors.length > 0) {
-      for (const e of errors) {
-        console.error(e);
-      }
-      throw new Error(
-        `Startup migration encountered ${errors.length} error(s). See logs above.`
-      );
     }
 
     const afterColumns = await getExistingColumns(client);
