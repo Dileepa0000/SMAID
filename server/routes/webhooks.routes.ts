@@ -41,7 +41,10 @@ export function registerWebhookRoutes(app: Express) {
   // Get global webhook URL
   app.get("/api/webhook/global-url", requireAuth, webhooksController.getGlobalWebhookUrl);
 
-  // Global webhook endpoint
+  // Global & Meta WhatsApp webhook endpoints
+  app.all("/api/webhook/whatsapp", webhooksController.handleWebhook);
+  app.all("/webhook/whatsapp", webhooksController.handleWebhook);
+  app.all("/api/webhook/global", webhooksController.handleWebhook);
   app.all("/webhook/global", webhooksController.handleWebhook);
   app.all("/webhook/:id", webhooksController.handleWebhook);
 
