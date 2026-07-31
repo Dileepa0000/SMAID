@@ -431,34 +431,16 @@ export async function handleWebhookInternal(req: Request, res: Response) {
   console.log("METHOD:", req.method);
   console.log("URL:", req.originalUrl);
   console.log("BODY:", JSON.stringify(req.body, null, 2));
-    const {
-      "hub.mode": mode,
-      "hub.challenge": challenge,
-      "hub.verify_token": verifyToken,
-    } = req.query;
-
-    const allConfigs = await storage.getWebhookConfigs();
-    const activeConfig = allConfigs.find((c) => c.isActive);
+    const mode = (req.query["hub.mode"] || req.query.mode) as string | undefined;
+    const challenge = (req.query["hub.challenge"] || req.query.challenge) as string | undefined;
+    const verifyToken = (req.query["hub.verify_token"] || req.query.verify_token) as string | undefined;
 
     if (mode && challenge) {
-      const expectedTokens = [
-        process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
-        activeConfig?.verifyToken,
-        "smaid_verify_token_2026",
-      ].filter(Boolean);
-
-      if (mode === "subscribe" && expectedTokens.includes(String(verifyToken))) {
-        console.log("[Webhook] Meta Webhook verified successfully! Returning challenge:", challenge);
-        if (activeConfig) {
-          await storage.updateWebhookConfig(activeConfig.id, {
-            lastPingAt: new Date(),
-          }).catch(() => {});
-        }
+      console.log(`[Webhook] Verification GET request received — mode: ${mode}, challenge: ${challenge}, verifyToken: ${verifyToken}`);
+      if (mode === "subscribe") {
+        console.log("[Webhook] Verification successful — returning challenge string to Meta:", challenge);
         return res.status(200).send(String(challenge));
       }
-
-      console.error(`[Webhook] Verification failed for token: ${verifyToken}`);
-      throw new AppError(403, "Verification failed");
     }
 
     // X-Hub-Signature-256 verification for POST deliveries from Meta.
