@@ -656,6 +656,21 @@ export async function runStartupMigration(pool: Pool): Promise<void> {
       }
     }
 
+    // Seed default Superadmin account if not present
+    try {
+      const bcrypt = (await import("bcryptjs")).default;
+      const defaultHash = await bcrypt.hash("Admin@12345", 10);
+      await client.query(`
+        INSERT INTO users (username, password, email, first_name, last_name, role, status, is_email_verified)
+        VALUES ('admin', '${defaultHash}', 'admin@smaid.com', 'Super', 'Admin', 'superadmin', 'active', true)
+        ON CONFLICT (username) DO UPDATE 
+        SET role = 'superadmin', status = 'active', is_email_verified = true;
+      `);
+      console.log("[startup-migration] Superadmin account seeded/verified (username: admin)");
+    } catch (seedErr: any) {
+      console.warn(`[startup-migration] Superadmin seed notice: ${seedErr.message}`);
+    }
+
     const afterColumns = await getExistingColumns(client);
     const afterTables = await getExistingTables(client);
 
