@@ -64,6 +64,7 @@ import { registerLanguageRoutes } from "./language.routes";
 import { registerClientApiRoutes } from "./client-api.routes";
 import { registerRestApiV1Routes } from "./rest-api-v1.routes";
 import { registerAppUpdateRoutes } from "./app-update.routes";
+import { registerAutoResponseRoutes } from "./auto-response.routes";
 
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
   // Auth routes (no authentication required)
@@ -114,6 +115,7 @@ app.use(
   registerClientApiRoutes(app);
   registerRestApiV1Routes(app);
   registerAppUpdateRoutes(app);
+  registerAutoResponseRoutes(app);
   app.use("/api", payoutRoutes);
   
   // Team management routes

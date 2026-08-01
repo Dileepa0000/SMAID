@@ -37,6 +37,7 @@ import { AppError, asyncHandler } from "../middlewares/error.middleware";
 import crypto from "crypto";
 import { startAutomationExecutionFunction } from "./automation.controller";
 import { triggerService } from "server/services/automation-execution-service";
+import { findMatchingAutoResponse, incrementAutoResponseCount } from "./auto-response.controller";
 import { WhatsAppApiService } from "server/services/whatsapp-api";
 import { getWhatsAppError } from "@shared/whatsapp-error-codes";
 import { db } from "server/db";
@@ -1121,8 +1122,26 @@ if (type === "button" && message.button?.payload?.startsWith("COD_")) {
       }
     }
 
-    // AI auto reply — only fires when no automation handled this message, text only
+    // ─── Keyword Auto-Reply ──────────────────────────────────────────────────
+    // Fires when: no automation handled the message AND message is plain text.
+    // Priority: Automation > Keyword Auto-Reply > AI.
+    let keywordHandled = false;
     if (!automationHandled && type === "text" && messageContent) {
+      try {
+        const matchedRule = await findMatchingAutoResponse(channel.id, messageContent);
+        if (matchedRule) {
+          await waApi.sendTextMessage(from, matchedRule.responseMessage);
+          void incrementAutoResponseCount(matchedRule.id);
+          keywordHandled = true;
+          console.log(`[AutoReply] Keyword matched rule "${matchedRule.name}" for message: "${messageContent}"`);
+        }
+      } catch (keywordError) {
+        console.error("[AutoReply] Keyword auto-reply error:", keywordError);
+      }
+    }
+
+    // AI auto reply — only fires when no automation AND no keyword rule handled this message, text only
+    if (!automationHandled && !keywordHandled && type === "text" && messageContent) {
       try {
         const shouldSendAiReply = await checkAndSendAiReply(
           messageContent,

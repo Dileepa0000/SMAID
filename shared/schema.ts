@@ -2417,3 +2417,46 @@ export const insertPayoutIssueSchema = createInsertSchema(payoutIssues).omit({
 export type PayoutIssue = typeof payoutIssues.$inferSelect;
 export type InsertPayoutIssue = z.infer<typeof insertPayoutIssueSchema>;
 
+// ─── Auto Responses (keyword-triggered bot replies) ────────────────────────
+export const autoResponses = pgTable(
+  "auto_responses",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    channelId: varchar("channel_id")
+      .notNull()
+      .references(() => channels.id, { onDelete: "cascade" }),
+    createdBy: varchar("created_by").references((): any => users.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    // Comma-separated trigger keywords stored as text for easy search
+    keywords: text("keywords").notNull(), // e.g. "hello, hi, hey"
+    responseMessage: text("response_message").notNull(),
+    responseType: text("response_type").default("text"), // text, image, document
+    mediaUrl: text("media_url"),
+    type: text("type").default("greeting"), // greeting, sales, support, info
+    status: text("status").default("active"), // active, paused, draft
+    matchMode: text("match_mode").default("contains"), // contains, exact, starts_with
+    isCaseSensitive: boolean("is_case_sensitive").default(false),
+    triggerCount: integer("trigger_count").default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    autoResponseChannelIdx: index("auto_responses_channel_idx").on(table.channelId),
+    autoResponseStatusIdx: index("auto_responses_status_idx").on(table.status),
+  })
+);
+
+export const insertAutoResponseSchema = createInsertSchema(autoResponses).omit({
+  id: true,
+  triggerCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AutoResponse = typeof autoResponses.$inferSelect;
+export type InsertAutoResponse = z.infer<typeof insertAutoResponseSchema>;
+

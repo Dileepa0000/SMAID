@@ -1,21 +1,4 @@
-/**
- * ============================================================
- * © 2025 Diploy — a brand of Bisht Technologies Private Limited
- * Original Author: BTPL Engineering Team
- * Website: https://diploy.in
- * Contact: cs@diploy.in
- *
- * Distributed under the Envato / CodeCanyon License Agreement.
- * Licensed to the purchaser for use as defined by the
- * Envato Market (CodeCanyon) Regular or Extended License.
- *
- * You are NOT permitted to redistribute, resell, sublicense,
- * or share this source code, in whole or in part.
- * Respect the author's rights and Envato licensing terms.
- * ============================================================
- */
-
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,7 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Channel } from "@shared/schema";
-import { MessageSquare } from "lucide-react";
+import { CheckCircle, Loader2, ShieldCheck, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 const channelFormSchema = z.object({
@@ -68,7 +51,9 @@ interface ChannelDialogProps {
 
 export function ChannelDialog({ open, onOpenChange, editingChannel, onSuccess }: ChannelDialogProps) {
   const { toast } = useToast();
-const {user} = useAuth()
+  const { user } = useAuth();
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+
   const channelForm = useForm<z.infer<typeof channelFormSchema>>({
     resolver: zodResolver(channelFormSchema),
     defaultValues: {
@@ -76,7 +61,7 @@ const {user} = useAuth()
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: "", 
+      appId: "",
       accessToken: "",
       businessAccountId: "",
       mmLiteEnabled: false,
@@ -86,25 +71,58 @@ const {user} = useAuth()
   });
 
   useEffect(() => {
+    setTestResult(null);
     if (editingChannel) {
       channelForm.reset({
         name: editingChannel.name,
         phoneNumber: editingChannel.phoneNumber || "",
         phoneNumberId: editingChannel.phoneNumberId,
         wabaId: editingChannel.whatsappBusinessAccountId || "",
-        appId: editingChannel.appId || "", 
+        appId: editingChannel.appId || "",
         accessToken: editingChannel.accessToken,
         businessAccountId: "",
-        mmLiteEnabled: editingChannel.mmLiteEnabled || false,
-        mmLiteApiUrl: editingChannel.mmLiteApiUrl || "",
-        mmLiteApiKey: editingChannel.mmLiteApiKey || "",
+        mmLiteEnabled: (editingChannel as any).mmLiteEnabled || false,
+        mmLiteApiUrl: (editingChannel as any).mmLiteApiUrl || "",
+        mmLiteApiKey: (editingChannel as any).mmLiteApiKey || "",
       });
     } else {
       channelForm.reset();
     }
   }, [editingChannel, channelForm]);
 
-  // Create/Update channel mutation
+  // ─── Test Credentials ────────────────────────────────────────────────────
+  const testCredentialsMutation = useMutation({
+    mutationFn: async () => {
+      const values = channelForm.getValues();
+      if (!values.phoneNumberId || !values.accessToken) {
+        throw new Error("Please fill in Phone Number ID and Access Token first");
+      }
+      const res = await apiRequest("POST", "/api/channels/test-credentials", {
+        phoneNumberId: values.phoneNumberId,
+        accessToken: values.accessToken,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || "Test failed");
+      return data;
+    },
+    onSuccess: (data) => {
+      setTestResult("success");
+      toast({
+        title: "✅ Credentials Valid",
+        description: `Connected to: ${data.phoneNumber || "WhatsApp Business API"}`,
+      });
+    },
+    onError: (error: Error) => {
+      setTestResult("error");
+      toast({
+        title: "❌ Credentials Invalid",
+        description: error.message || "Could not connect with these credentials.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // ─── Create / Update Channel ─────────────────────────────────────────────
   const createChannelMutation = useMutation({
     mutationFn: async (data: z.infer<typeof channelFormSchema>) => {
       const payload = {
@@ -119,7 +137,7 @@ const {user} = useAuth()
         mmLiteApiUrl: data.mmLiteApiUrl,
         mmLiteApiKey: data.mmLiteApiKey,
       };
-      
+
       if (editingChannel) {
         return await apiRequest("PUT", `/api/channels/${editingChannel.id}`, payload);
       } else {
@@ -128,46 +146,42 @@ const {user} = useAuth()
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
-      
-      // Check if the channel creation included health check results
+
       if (!editingChannel && data.healthStatus) {
-        if (data.healthStatus === 'healthy') {
+        if (data.healthStatus === "healthy") {
           toast({
             title: "Channel created successfully",
             description: "Your channel is connected and healthy!",
           });
-        } else if (data.healthStatus === 'error') {
+        } else if (data.healthStatus === "error") {
           toast({
             title: "Channel created with issues",
-            description: data.healthDetails?.error || "Channel was created but has connection issues. Please check your credentials.",
+            description:
+              data.healthDetails?.error ||
+              "Channel was created but has connection issues. Please check your credentials.",
             variant: "destructive",
           });
         }
       } else {
         toast({
           title: editingChannel ? "Channel updated" : "Channel created",
-          description: editingChannel ? "Your channel has been updated successfully." : "Your new channel has been added successfully.",
+          description: editingChannel
+            ? "Your channel has been updated successfully."
+            : "Your new channel has been added successfully.",
         });
-      }      
+      }
       onSuccess();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       let errorData = error?.response?.data;
-    
-      // If response.data is missing, try to extract JSON from error.message
+
       if (!errorData && typeof error?.message === "string") {
         try {
-          const match = error.message.match(/\{.*\}/); // find JSON inside the message
-          if (match) {
-            errorData = JSON.parse(match[0]);
-          }
-        } catch (e) {
-          console.error("Failed to parse error JSON:", e);
-        }
+          const match = error.message.match(/\{.*\}/);
+          if (match) errorData = JSON.parse(match[0]);
+        } catch {}
       }
-    
-      console.log("Channel mutation error:", errorData, error);
-    
+
       toast({
         title: "Error",
         description:
@@ -177,9 +191,7 @@ const {user} = useAuth()
           "Something went wrong while saving the channel.",
         variant: "destructive",
       });
-    }
-    
-    
+    },
   });
 
   const handleChannelSubmit = (data: z.infer<typeof channelFormSchema>) => {
@@ -195,6 +207,7 @@ const {user} = useAuth()
             Configure your WhatsApp Business API credentials and settings.
           </DialogDescription>
         </DialogHeader>
+
         <Form {...channelForm}>
           <form onSubmit={channelForm.handleSubmit(handleChannelSubmit)} className="space-y-4">
             <FormField
@@ -206,14 +219,12 @@ const {user} = useAuth()
                   <FormControl>
                     <Input placeholder="My Business" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    A friendly name to identify this channel
-                  </FormDescription>
+                  <FormDescription>A friendly name to identify this channel</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={channelForm.control}
               name="phoneNumber"
@@ -223,32 +234,27 @@ const {user} = useAuth()
                   <FormControl>
                     <Input placeholder="+1234567890" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    The WhatsApp Business phone number
-                  </FormDescription>
+                  <FormDescription>The WhatsApp Business phone number</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <FormField
-  control={channelForm.control}
-  name="appId"
-  render={({ field }) => (
-    <FormItem>
-      <FormLabel>Meta App ID</FormLabel>
-      <FormControl>
-        <Input placeholder="123456789012345" {...field} />
-      </FormControl>
-      <FormDescription>
-        Your Meta (Facebook) App ID
-      </FormDescription>
-      <FormMessage />
-    </FormItem>
-  )}
-/>
+              control={channelForm.control}
+              name="appId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Meta App ID</FormLabel>
+                  <FormControl>
+                    <Input placeholder="123456789012345" {...field} />
+                  </FormControl>
+                  <FormDescription>Your Meta (Facebook) App ID</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            
             <FormField
               control={channelForm.control}
               name="phoneNumberId"
@@ -265,7 +271,7 @@ const {user} = useAuth()
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={channelForm.control}
               name="wabaId"
@@ -282,7 +288,7 @@ const {user} = useAuth()
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={channelForm.control}
               name="accessToken"
@@ -292,14 +298,12 @@ const {user} = useAuth()
                   <FormControl>
                     <Input type="password" placeholder="Your access token" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Your permanent access token from Meta
-                  </FormDescription>
+                  <FormDescription>Your permanent access token from Meta</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={channelForm.control}
               name="businessAccountId"
@@ -309,24 +313,62 @@ const {user} = useAuth()
                   <FormControl>
                     <Input placeholder="123456789012345" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Your Meta Business Account ID (optional)
-                  </FormDescription>
+                  <FormDescription>Your Meta Business Account ID (optional)</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
+            {/* Test Result Banner */}
+            {testResult === "success" && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                <span>Credentials verified — ready to save!</span>
+              </div>
+            )}
+            {testResult === "error" && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                <XCircle className="w-4 h-4 flex-shrink-0" />
+                <span>Invalid credentials — please double-check Phone Number ID and Access Token.</span>
+              </div>
+            )}
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="sm:mr-auto"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={user?.username === 'demouser'? true :createChannelMutation.isPending}>
-                {createChannelMutation.isPending ? "Saving..." : editingChannel ? "Update" : "Create"} Channel
+
+              {/* Test Credentials */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => testCredentialsMutation.mutate()}
+                disabled={testCredentialsMutation.isPending}
+                className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
+                {testCredentialsMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4" />
+                )}
+                Test Credentials
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={user?.username === "demouser" ? true : createChannelMutation.isPending}
+              >
+                {createChannelMutation.isPending
+                  ? "Saving..."
+                  : editingChannel
+                  ? "Update"
+                  : "Create"}{" "}
+                Channel
               </Button>
             </DialogFooter>
           </form>

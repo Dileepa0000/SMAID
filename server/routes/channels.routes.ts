@@ -87,6 +87,7 @@ export function registerChannelRoutes(app: Express) {
   app.get("/api/channels/:id/messaging-limit", requireAuth, channelsController.getMessagingLimit);
 
   app.get("/api/whatsapp/test-credentials", requireAuth, requireRole("superadmin"), channelsController.testCredentials);
+  app.post("/api/channels/test-credentials", requireAuth, channelsController.testManualCredentials);
 
   app.get("/api/admin/channels", requireAuth, requireRole("superadmin"), channelsController.getAllChannelsAdmin);
   app.get("/api/admin/channel-signup-logs", requireAuth, requireRole("superadmin"), channelsController.getSignupLogs);

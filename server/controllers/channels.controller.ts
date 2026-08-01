@@ -1736,3 +1736,37 @@ export const resubscribeAllWebhooks = asyncHandler(async (req: Request, res: Res
     results,
   });
 });
+
+export const testManualCredentials = asyncHandler(async (req: Request, res: Response) => {
+  const { phoneNumberId, accessToken } = req.body;
+
+  if (!phoneNumberId || !accessToken) {
+    throw new AppError(400, "phoneNumberId and accessToken are required");
+  }
+
+  try {
+    const apiRes = await fetch(
+      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${phoneNumberId.trim()}?access_token=${accessToken.trim()}`
+    );
+    const data: any = await apiRes.json();
+
+    if (data.error) {
+      return res.status(400).json({
+        success: false,
+        message: data.error.message || "Invalid credentials",
+        error: data.error,
+      });
+    }
+
+    return res.json({
+      success: true,
+      phoneNumber: data.display_phone_number || data.verified_name || phoneNumberId,
+      details: data,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to reach WhatsApp API",
+    });
+  }
+});

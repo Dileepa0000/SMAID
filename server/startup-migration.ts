@@ -582,6 +582,31 @@ const steps: MigrationStep[] = [
       END$$;
     `,
   },
+  // ─── Auto Responses table ──────────────────────────────────────────────
+  {
+    description: "Create auto_responses table for keyword-triggered bot replies",
+    sql: `
+      CREATE TABLE IF NOT EXISTS auto_responses (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        channel_id VARCHAR NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+        created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+        name TEXT NOT NULL,
+        keywords TEXT NOT NULL,
+        response_message TEXT NOT NULL,
+        response_type TEXT DEFAULT 'text',
+        media_url TEXT,
+        type TEXT DEFAULT 'greeting',
+        status TEXT DEFAULT 'active',
+        match_mode TEXT DEFAULT 'contains',
+        is_case_sensitive BOOLEAN DEFAULT false,
+        trigger_count INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS auto_responses_channel_idx ON auto_responses(channel_id);
+      CREATE INDEX IF NOT EXISTS auto_responses_status_idx ON auto_responses(status);
+    `,
+  },
 ];
 
 /**
