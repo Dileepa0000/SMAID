@@ -662,7 +662,7 @@ export async function runStartupMigration(pool: Pool): Promise<void> {
       const defaultHash = await bcrypt.hash("Admin@12345", 10);
       await client.query(`
         INSERT INTO users (username, password, email, first_name, last_name, role, status, is_email_verified, permissions)
-        VALUES ('admin', '${defaultHash}', 'admin@smaid.com', 'Super', 'Admin', 'superadmin', 'active', true, '[]'::jsonb)
+        VALUES ('admin', '${defaultHash}', 'admin@smaid.com', 'Super', 'Admin', 'superadmin', 'active', true, '{}'::text[])
         ON CONFLICT (username) DO UPDATE 
         SET password = EXCLUDED.password, role = 'superadmin', status = 'active', is_email_verified = true;
       `);
