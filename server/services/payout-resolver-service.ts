@@ -139,7 +139,31 @@ export class PayoutResolverService {
 
     return updated || null;
   }
+  /**
+   * Public lookup by Issue ID or Customer Phone
+   */
+  async getIssueByIdOrPhone(query: string): Promise<PayoutIssue[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const issues = await db
+      .select()
+      .from(payoutIssues)
+      .where(
+        eq(payoutIssues.id, trimmed)
+      );
+
+    if (issues.length > 0) return issues;
+
+    // Search by customer phone
+    return db
+      .select()
+      .from(payoutIssues)
+      .where(eq(payoutIssues.customerPhone, trimmed))
+      .orderBy(desc(payoutIssues.createdAt));
+  }
 }
 
 export const payoutResolverService = new PayoutResolverService();
+
 

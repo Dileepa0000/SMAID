@@ -4,6 +4,20 @@ import { insertPayoutIssueSchema } from "@shared/schema";
 
 const router = Router();
 
+// GET /api/payout-issues/track - Public lookup by ID or Phone
+router.get("/payout-issues/track", async (req, res) => {
+  try {
+    const query = (req.query.q || req.query.query || "") as string;
+    if (!query) {
+      return res.status(400).json({ success: false, message: "Ticket ID or Phone Number is required" });
+    }
+    const issues = await payoutResolverService.getIssueByIdOrPhone(query);
+    return res.json({ success: true, data: issues });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/payout-issues - Get all reported payout issues
 router.get("/payout-issues", async (req, res) => {
   try {

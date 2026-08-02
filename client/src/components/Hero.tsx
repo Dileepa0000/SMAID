@@ -169,6 +169,12 @@ const Hero = () => {
                 </>
               )}
             </Link>
+            <Link
+              href="/track-case"
+              className="bg-slate-900 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-slate-800 transition-all duration-300 flex items-center group justify-center shadow-md border border-slate-700"
+            >
+              🔍 Track Case Status
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 max-w-3xl mx-auto">

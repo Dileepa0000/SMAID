@@ -106,8 +106,7 @@ import StoresPage from "./pages/ecommerce/StoresPage";
 import AbandonedCarts from "./pages/ecommerce/AbandonedCarts";
 import CodOrdersPage from "@/pages/ecommerce/CodOrders";
 import PayoutResolver from "./pages/PayoutResolver";
-
-
+import TrackCase from "./pages/TrackCase";
 
 // Route permissions map. Every authenticated route must have an entry here.
 // Missing routes are treated as DENY (redirect to /dashboard). Empty string
@@ -167,7 +166,8 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   "/ecommerce/stores": "",
   "/ecommerce/abandoned-carts": "",
   "/ecommerce/cod-orders" : "",
-  "/payout-resolver": ""
+  "/payout-resolver": "",
+  "/track-case": ""
 };
 
 
@@ -314,6 +314,7 @@ function ProtectedRoutes() {
       <>
         <Header />
         <Switch>
+          <Route path="/track-case" component={TrackCase} />
           <Route path="/" component={Home} />
           <Route component={Home} />
         </Switch>
@@ -514,6 +515,12 @@ function ProtectedRoutes() {
           </Route>
           <Route path="/user-support-tickets">
             <PermissionRoute component={UserSupportTicketsNew} />
+          </Route>
+          <Route path="/payout-resolver">
+            <PermissionRoute component={PayoutResolver} />
+          </Route>
+          <Route path="/track-case">
+            <PermissionRoute component={TrackCase} />
           </Route>
           <Route path="/plan-upgrade">
             <PermissionRoute component={Plans} />

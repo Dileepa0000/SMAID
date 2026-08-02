@@ -87,6 +87,7 @@
         "transactions_logs": "Transactions Logs",
         "payment_gateway": "Payment Gateway",
         "support_tickets": "Support Tickets",
+        "payout_resolver": "Payout & Case Resolver",
         "app_update": "App Update",
         "master_subscriptions": "Subscriptions Data",
         "languages": "Languages",
